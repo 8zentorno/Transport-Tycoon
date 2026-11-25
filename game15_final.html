@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Транспортный Тайкун — Telegram Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #121212);
+            --text-color: var(--tg-theme-text-color, #ffffff);
+            --hint-color: var(--tg-theme-hint-color, #aaaaaa);
+            --button-color: var(--tg-theme-button-color, #2481cc);
+            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+            --card-bg: #1e1e1e;
+            --danger-color: #ff5252;
+            --success-color: #4caf50;
+            --warning-color: #ffb300;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+            box-sizing: border-box;
+        }
+
+        .balance-card {
+            background: var(--card-bg);
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .balance-amount {
+            font-size: 26px;
+            font-weight: bold;
+            color: var(--success-color);
+            margin-top: 2px;
+        }
+        .balance-amount.negative { color: var(--danger-color); }
+
+        .time-widget {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #181818;
+            padding: 6px 12px;
+            border-radius: 8px;
+            margin-top: 6px;
+            font-size: 12px;
+            border: 1px solid #2a2a2a;
+        }
+
+        .control-panel {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .ctrl-btn {
+            flex: 1;
+            padding: 6px;
+            background: var(--card-bg);
+            border: 1px solid #333;
+            color: var(--text-color);
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+        }
+        .ctrl-btn.paused { background: var(--warning-color); color: #000; }
+        .ctrl-btn.danger { background: #5c2323; border-color: #8b3a3a; color: #ff8888; }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 8px 2px;
+            background: var(--card-bg);
+            border: 1px solid #333;
+            color: var(--hint-color);
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .tab-btn.active {
+            background: var(--button-color);
+            color: var(--button-text-color);
+            border-color: var(--button-color);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        section {
+            background: var(--card-bg);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            font-size: 14px;
+            margin-top: 0;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 4px;
+        }
+
+        button.action-btn {
+            background-color: var(--button-color);
+            color: var(--button-text-color);
+            border: none;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 6px;
+        }
+
+        button:active { opacity: 0.8; }
+        button:disabled { background-color: #444; color: #888; cursor: not-allowed; }
+
+        .upgrade-card, .driver-card, .ad-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .upgrade-card:last-child, .driver-card:last-child, .ad-card:last-child { border-bottom: none; }
+
+        .vehicle-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #2a2a2a;
+            font-size: 12px;
+        }
+        .vehicle-header { display: flex; justify-content: space-between; align-items: center; }
+
+        #cityMap {
+            width: 100%;
+            height: 200px;
+            background-color: #1e261f;
+            border-radius: 10px;
+            display: block;
+            margin-bottom: 8px;
+            border: 1px solid #2e3d32;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            width: 100%;
+            max-width: 380px;
+            border: 1px solid #444;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .modal-title { font-weight: bold; font-size: 15px; margin-bottom: 8px; color: var(--warning-color); }
+        .modal-desc { font-size: 13px; margin-bottom: 14px; line-height: 1.4; }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 12px;
+            border-bottom: 1px dashed #333;
+        }
+
+        .log-box {
+            background: #181818;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            height: 110px;
+            overflow-y: auto;
+            color: var(--hint-color);
+            font-family: monospace;
+            line-height: 1.3;
+        }
+        
+        .status-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #2e7d32;
+            color: #fff;
+            display: inline-block;
+            margin-top: 4px;
+        }
+        .status-badge.traffic { background: #c62828; }
+        .status-badge.random-traffic { background: #d84315; }
+        .status-badge.fast { background: #0288d1; }
+
+        .tag-badge {
+            font-size: 10px;
+            padding: 2px 5px;
+            border-radius: 4px;
+            background: #333;
+            color: #ccc;
+        }
+        .tag-badge.novice { background: #795548; }
+        .tag-badge.experienced { background: #0288d1; }
+        .tag-badge.pro { background: #388e3c; }
+
+        .fare-slider-container {
+            margin: 10px 0;
+            background: #181818;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+        .fare-slider {
+            width: 100%;
+            margin-top: 8px;
+        }
+        .satisfaction-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: #333;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .satisfaction-fill {
+            height: 100%;
+            width: 100%;
+            background: var(--success-color);
+            transition: width 0.3s, background-color 0.3s;
+        }
+    
+        .status-badge.season-winter { background: #1565c0; }
+        .status-badge.season-summer { background: #ef6c00; }
+        .status-badge.season-spring { background: #2e7d32; }
+        .status-badge.season-autumn { background: #8d6e63; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Баланс и Часы -->
+    <div class="balance-card">
+        <div style="font-size: 11px; color: var(--hint-color);">Баланс компании</div>
+        <div class="balance-amount" id="moneyDisplay">25 000 ₽</div>
+        <div style="font-size: 12px; margin-top: 2px;" id="incomeDisplay">Чистый доход: 0 ₽/сек</div>
+
+        <div class="time-widget">
+            <span id="dateDisplay" style="font-weight: bold;">01.01.2000 (Пн)</span>
+            <span id="clockDisplay" style="color: var(--warning-color); font-weight: bold; font-family: monospace; font-size: 14px;">06:00</span>
+        </div>
+        <div id="statusBadgeContainer"></div>
+    </div>
+
+    <!-- Управление -->
+    <div class="control-panel">
+        <button class="ctrl-btn" id="pauseBtn" data-action="pause">⏸ Пауза / Статистика</button>
+        <button class="ctrl-btn danger" data-action="reset">🔄 Начать заново</button>
+    </div>
+
+    <!-- Карта Города -->
+    <canvas id="cityMap" width="380" height="200"></canvas>
+
+    <!-- Вкладки -->
+    <div class="tabs">
+        <div class="tab-btn active" data-action="tab" data-tab="fleet">🚐 Парк</div>
+        <div class="tab-btn" data-action="tab" data-tab="drivers">👔 Кадры</div>
+        <div class="tab-btn" data-action="tab" data-tab="ads">📺 Реклама</div>
+        <div class="tab-btn" data-action="tab" data-tab="shop">🛒 Салон</div>
+        <div class="tab-btn" data-action="tab" data-tab="upgrades">📈 Настройки</div>
+    </div>
+
+    <!-- Вкладка: Автопарк -->
+    <div id="tab-fleet" class="tab-content active">
+        <section>
+            <h2>Автопарк (<span id="fleetCount">0</span> / <span id="maxCapacity">5</span>)</h2>
+            <div id="fleetList">
+                <div style="color: var(--hint-color); font-size: 12px; text-align: center;">Транспорта нет. Купите машину в Салоне!</div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Вкладка: Отдел кадров -->
+    <div id="tab-drivers" class="tab-content">
+        <section>
+            <h2>Биржа труда (Водители)</h2>
+            <div style="font-size: 11px; color: var(--hint-color); margin-bottom: 8px;">
+                Водители влияют на доход (качество вождения) и на износ техники. Чем выше опыт, тем дольше служат машины!
+            </div>
+            <div id="driversCandidatesList"></div>
+            <button class="action-btn" data-action="refresh-candidates" style="background: #333; margin-top: 8px;">🔄 Обновить список кандидатов (500 ₽)</button>
+        </section>
+
+        <section>
+            <h2>Свободные водители в штате</h2>
+            <div id="freeDriversList"></div>
+        </section>
+    </div>
+
+    <!-- Вкладка: Рекламные контракты -->
+    <div id="tab-ads" class="tab-content">
+        <section>
+            <h2>Биржа рекламных контрактов</h2>
+            <div style="font-size: 11px; color: var(--hint-color); margin-bottom: 8px;">
+                Максимум активных контрактов: <strong>4</strong>. Шанс одобрения — 50%.
+            </div>
+            <div id="adOffersList"></div>
+        </section>
+
+        <section>
+            <h2>Активные контракты (<span id="activeAdsCount">0</span>/4)</h2>
+            <div id="activeAdsList"></div>
+        </section>
+    </div>
+
+    <!-- Вкладка: Автосалон -->
+    <div id="tab-shop" class="tab-content">
+        <section>
+            <h2>Покупка техники</h2>
+            <div style="font-size: 11px; color: var(--hint-color); margin-bottom: 8px;">
+                Машина без водителя стоит на стоянке и требует платы за простой. Маршрут можно сменить в карточке машины во вкладке «Парк».
+            </div>
+            <button class="action-btn" data-action="buy" data-type="marshrutka">🚐 Маршрутка — 10 000 ₽ · 30 мест · простой 40 ₽/дн</button>
+            <button class="action-btn" data-action="buy" data-type="bus" style="background-color: #2e7d32;">🚌 Автобус — 35 000 ₽ · 50 мест · простой 60 ₽/дн</button>
+            <button class="action-btn" data-action="buy" data-type="trolleybus" style="background-color: #c62828;">🚎 Троллейбус — 60 000 ₽ · 70 мест · простой 80 ₽/дн</button>
+        </section>
+    </div>
+
+    <!-- Вкладка: Тарифы и Апгрейды -->
+    <div id="tab-upgrades" class="tab-content">
+        <section>
+            <h2>Управление тарифом</h2>
+            <div class="fare-slider-container">
+                <div style="display:flex; justify-content:space-between; font-size:12px;">
+                    <span>Цена билета:</span>
+                    <strong id="farePriceDisplay" style="color:var(--warning-color);">25 ₽</strong>
+                </div>
+                <input type="range" min="10" max="100" value="25" class="fare-slider" id="fareRange">
+
+                <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:8px;">
+                    <span>Лояльность жителей:</span>
+                    <span id="satisfactionText" style="color:var(--success-color);">100% (Довольны)</span>
+                </div>
+                <div class="satisfaction-bar">
+                    <div class="satisfaction-fill" id="satisfactionFill"></div>
+                </div>
+                <div style="font-size:10px; color:var(--hint-color); margin-top:6px;" id="fareTipText">
+                    Комфортная цена: до 25 ₽ (повышайте Маркетинг, чтобы поднимать цену без недовольства).
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Улучшения бизнеса</h2>
+
+            <div class="upgrade-card">
+                <div>
+                    <strong>📢 Маркетинг</strong> (Lvl <span id="lvl-marketing">0</span>)<br>
+                    <span style="font-size: 11px; color: var(--hint-color);">+10 ₽ к комфортной цене билета & +15% потока</span>
+                </div>
+                <button data-action="buy-upgrade" data-type="marketing" id="btn-up-marketing" style="width: auto; padding: 6px 10px; font-size: 11px;">15 000 ₽</button>
+            </div>
+
+            <div class="upgrade-card">
+                <div>
+                    <strong>🏬 Расширение гаража</strong> (Lvl <span id="lvl-garage">0</span>)<br>
+                    <span style="font-size: 11px; color: var(--hint-color);">+3 места для техники</span>
+                </div>
+                <button data-action="buy-upgrade" data-type="garage" id="btn-up-garage" style="width: auto; padding: 6px 10px; font-size: 11px;">40 000 ₽</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Журнал -->
+    <section>
+        <h2>Журнал событий</h2>
+        <div class="log-box" id="logBox"></div>
+    </section>
+</div>
+
+<!-- Модальные окна событий -->
+<div class="modal-overlay" id="eventModal">
+    <div class="modal">
+        <div class="modal-title" id="modalTitle">Событие</div>
+        <div class="modal-desc" id="modalDesc">Описание проблемы...</div>
+        <div id="modalChoices"></div>
+    </div>
+</div>
+
+<!-- Окно Уведомлений -->
+<div class="modal-overlay" id="noticeModal">
+    <div class="modal">
+        <div class="modal-title" id="noticeTitle">Уведомление</div>
+        <div class="modal-desc" id="noticeDesc">...</div>
+        <button class="action-btn" data-action="close-notice">Понятно</button>
+    </div>
+</div>
+
+<!-- Окно Статистики / Паузы -->
+<div class="modal-overlay" id="statsModal">
+    <div class="modal">
+        <div class="modal-title" style="color: var(--button-color);" id="statsTitle">📊 Статистика компании</div>
+        <div id="statsContent"></div>
+        <button class="action-btn" style="margin-top: 12px;" data-action="close-stats">▶ Продолжить игру</button>
+    </div>
+</div>
+
+<!-- Окно Выбора Водителя -->
+<div class="modal-overlay" id="assignDriverModal">
+    <div class="modal">
+        <div class="modal-title">Назначить водителя</div>
+        <div class="modal-desc">Выберите водителя из вашего штата:</div>
+        <div id="assignDriversList"></div>
+        <button class="action-btn" style="background:#555; margin-top:8px;" data-action="close-assign">Отмена</button>
+    </div>
+</div>
+
+    <script>
+    // ==========================================
+    // TELEGRAM ИНТЕГРАЦИЯ
+    // ==========================================
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    function haptic(style) {
+        try {
+            if (!tg.HapticFeedback) return;
+            if (style === 'success' || style === 'error' || style === 'warning') {
+                tg.HapticFeedback.notificationOccurred(style);
+            } else {
+                tg.HapticFeedback.impactOccurred(style || 'medium');
+            }
+        } catch (e) {}
+    }
+
+    function askConfirm(text, onYes) {
+        if (typeof tg.showConfirm === 'function') {
+            tg.showConfirm(text, ok => { if (ok) onYes(); });
+        } else if (typeof window.confirm === 'function') {
+            if (window.confirm(text)) onYes();
+        } else {
+            onYes();
+        }
+    }
+
+    // Кнопка BackButton закрывает верхнее открытое окно
+    const MODAL_IDS = ['assignDriverModal', 'noticeModal', 'statsModal', 'eventModal'];
+
+    function refreshBackVisibility() {
+        try {
+            const anyActive = MODAL_IDS.some(id => document.getElementById(id).classList.contains('active'));
+            if (anyActive) tg.BackButton.show();
+            else tg.BackButton.hide();
+        } catch (e) {}
+    }
+
+    function onBackButton() {
+        if (document.getElementById('assignDriverModal').classList.contains('active')) closeAssignModal();
+        else if (document.getElementById('noticeModal').classList.contains('active')) closeNoticeModal();
+        else if (document.getElementById('statsModal').classList.contains('active')) closeStatsModal();
+        else if (document.getElementById('eventModal').classList.contains('active')) closeEventModal();
+    }
+
+    try { tg.BackButton.onClick(onBackButton); } catch (e) {}
+
+    // ==========================================
+    // КОНСТАНТЫ И КОНФИГУРАЦИИ
+    // ==========================================
+    const driverNames = [
+        "Алексей Иванов", "Сергей Смирнов", "Дмитрий Кузнецов", "Иван Попов",
+        "Фарход Алиев", "Шерзод Рахимов", "Джамшед Турсунов", "Алишер Каримов",
+        "Рустам Юсупов", "Бахтиёр Хасанов", "Отабек Назаров", "Сардор Мирзаев",
+        "Михаил Соколов", "Артём Васильев", "Павел Новиков", "Андрей Морозов"
+    ];
+
+    const adBrandTemplates = [
+        { key: "burger", name: "🍔 Сеть бургерных 'Вкусный Миг'", basePay: 400, baseDays: 14, icon: "🍔" },
+        { key: "telecom", name: "📱 Оператор связи 'МедиаТел'", basePay: 850, baseDays: 20, icon: "📱" },
+        { key: "bank", name: "🏦 Банк 'Народный Капитал'", basePay: 1800, baseDays: 30, icon: "🏦" },
+        { key: "autoservice", name: "🛞 Автосервис 'Форсаж'", basePay: 600, baseDays: 10, icon: "🛞" },
+        { key: "pharma", name: "💊 Аптечная сеть 'Здоровье'", basePay: 1100, baseDays: 15, icon: "💊" }
+    ];
+
+    const vehicleTypes = {
+        marshrutka: { name: '🚐 Маршрутка', icon: '🚐', cost: 10000, capacity: 30, baseFill: 0.19, expense: 100, parkFee: 40, wearRate: 0.08, repairFactor: 3500 },
+        bus:        { name: '🚌 Автобус',    icon: '🚌', cost: 35000, capacity: 50, baseFill: 0.225, expense: 150, parkFee: 60, wearRate: 0.06, repairFactor: 14000 },
+        trolleybus: { name: '🚎 Троллейбус', icon: '🚎', cost: 60000, capacity: 70, baseFill: 0.256, expense: 200, parkFee: 80, wearRate: 0.04, repairFactor: 24000 }
+    };
+
+    const driverLevels = {
+        1: { label: 'Новичок',       salary: 100, wearMult: 1.3, quality: 0.9 },
+        2: { label: 'Опытный',       salary: 300, wearMult: 1.0, quality: 1.0 },
+        3: { label: 'Профессионал',  salary: 600, wearMult: 0.7, quality: 1.15 }
+    };
+
+    // Маршруты: разная длина и доходность
+    const routes = {
+        center: { key: 'center', name: '⭕ Центр (короткий)',   incomeMult: 0.85, wearMult: 0.70 },
+        ring:   { key: 'ring',   name: '🛣 Кольцевой (средний)', incomeMult: 1.00, wearMult: 1.00 },
+        suburb: { key: 'suburb', name: '🌾 Пригород (длинный)', incomeMult: 1.35, wearMult: 1.45 }
+    };
+    const routeOrder = ['center', 'ring', 'suburb'];
+
+    // Сезоны: спрос и износ зависят от месяца
+    const seasons = [
+        { name: '❄️ Зима',  months: [11, 0, 1], cls: 'winter', demand: 1.15, wear: 1.30, desc: 'спрос +15% · износ +30%' },
+        { name: '🌱 Весна', months: [2, 3, 4],  cls: 'spring', demand: 1.00, wear: 1.00, desc: 'обычные условия' },
+        { name: '☀️ Лето',  months: [5, 6, 7],  cls: 'summer', demand: 0.95, wear: 0.80, desc: 'спрос −5% · износ −20%' },
+        { name: '🍂 Осень', months: [8, 9, 10], cls: 'autumn', demand: 1.00, wear: 1.05, desc: 'износ +5%' }
+    ];
+
+    function getSeason(monthIdx) {
+        return seasons.find(s => s.months.includes(monthIdx)) || seasons[1];
+    }
+
+    const upgradeConfigs = {
+        marketing: { baseCost: 15000, mult: 1.6 },
+        garage:    { baseCost: 40000, mult: 1.6 }
+    };
+
+    const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    const monthNames = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+    const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+    // ==========================================
+    // СОСТОЯНИЕ ИГРЫ
+    // ==========================================
+    function createFreshState() {
+        return {
+            money: 25000,
+            ticketPrice: 25,
+            vehicles: [],
+            driversStaff: [],
+            candidates: [],
+            activeAds: [],
+            adMarketOffers: [],
+            upgrades: { marketing: 0, garage: 0 },
+            time: { year: 2000, month: 0, day: 1, dayOfWeek: 0, hour: 6, minute: 0 },
+            log: ['[06:00] Игра запущена! 1 января 2000 года. Купите транспорт и нанимите водителей!'],
+            stats: {
+                daysPassed: 0,
+                totalEarned: 0,
+                totalRepairsCost: 0,
+                totalFines: 0,
+                passengersCarried: 0,
+                driversHired: 0,
+                driversRetired: 0,
+                driversFired: 0,
+                adIncome: 0,
+                parkingCost: 0
+            }
+        };
+    }
+
+    let game = createFreshState();
+
+    let isPaused = false;
+    let isGameOver = false;
+    let festivalTimer = 0;
+    let isModalActive = false;
+    let currentSpeedMult = 1.0;
+    let isRandomTrafficActive = false;
+    let assignTargetVehicleId = null;
+    let currentEvent = null;
+
+    let idCounter = 1;
+    function genId() { return idCounter++; }
+
+    function fmt(n) {
+        return Math.round(n).toLocaleString('ru-RU');
+    }
+
+    // ==========================================
+    // ЭКОНОМИЧЕСКОЕ ЯДРО
+    // ==========================================
+    function getSatisfaction() {
+        const fairPrice = 25 + game.upgrades.marketing * 10;
+        if (game.ticketPrice <= fairPrice) return 1.0;
+        return Math.max(0.1, 1.0 - (game.ticketPrice - fairPrice) * 0.012);
+    }
+
+    function getFill(conf, demandMult) {
+        const fairPrice = 25 + game.upgrades.marketing * 10;
+        const marketingMult = 1 + game.upgrades.marketing * 0.15;
+        const cheapBonus = game.ticketPrice < fairPrice
+            ? Math.min(1.25, 1 + (fairPrice - game.ticketPrice) * 0.01)
+            : 1.0;
+        return Math.min(1.0, conf.baseFill * demandMult * marketingMult * cheapBonus);
+    }
+
+    function getDemandMult() {
+        const isWeekend = (game.time.dayOfWeek === 5 || game.time.dayOfWeek === 6);
+        const h = game.time.hour;
+        let dm = isWeekend ? 0.8 : (((h >= 7 && h < 9) || (h >= 17 && h < 19)) ? 1.8 : 1.0);
+        dm *= getSeason(game.time.month).demand;
+        return dm;
+    }
+
+    function computeEconomy(demandMult) {
+        const sat = getSatisfaction();
+        const festivalMult = (festivalTimer > 0) ? 2.0 : 1.0;
+        let income = 0, expense = 0, pax = 0;
+
+        game.vehicles.forEach(v => {
+            const conf = vehicleTypes[v.type];
+            if (v.driver && v.wear < 100) {
+                const eff = (100 - v.wear) / 100;
+                const route = routes[v.route] || routes.ring;
+                const quality = (v.driver.quality !== undefined) ? v.driver.quality : 1.0;
+                const perHour = conf.capacity * getFill(conf, demandMult) * eff;
+                income += perHour * game.ticketPrice * sat * quality * festivalMult * route.incomeMult;
+                expense += conf.expense * eff;
+                pax += perHour;
+            }
+        });
+
+        return { income: income, expense: expense, pax: pax };
+    }
+
+    // ==========================================
+    // РЕНДЕРЫ (каждый обновляет только своё)
+    // ==========================================
+    function renderLog() {
+        document.getElementById('logBox').innerHTML =
+            game.log.map(escapeHtml).join('<br>') || '(пусто)';
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function addLog(text) {
+        const timeStr = String(game.time.hour).padStart(2, '0') + ':00';
+        game.log.unshift('[' + timeStr + '] ' + text);
+        if (game.log.length > 50) game.log.length = 50;
+        renderLog();
+    }
+
+    function updateQuickHUD() {
+        const roundedMoney = Math.round(game.money);
+        const moneyElem = document.getElementById('moneyDisplay');
+        moneyElem.innerText = fmt(roundedMoney) + ' ₽';
+        if (roundedMoney < 0) moneyElem.classList.add('negative');
+        else moneyElem.classList.remove('negative');
+
+        const dayStr = String(game.time.day).padStart(2, '0');
+        document.getElementById('dateDisplay').innerText =
+            dayStr + '.' + monthNames[game.time.month] + '.' + game.time.year + ' (' + dayNames[game.time.dayOfWeek] + ')';
+        document.getElementById('clockDisplay').innerText = String(game.time.hour).padStart(2, '0') + ':00';
+
+        document.getElementById('farePriceDisplay').innerText = game.ticketPrice + ' ₽';
+        document.getElementById('fareRange').value = game.ticketPrice;
+
+        const satisfaction = getSatisfaction();
+        const satPercent = Math.round(satisfaction * 100);
+        const satFill = document.getElementById('satisfactionFill');
+        const satText = document.getElementById('satisfactionText');
+        satFill.style.width = satPercent + '%';
+        if (satPercent > 80) {
+            satFill.style.backgroundColor = 'var(--success-color)';
+            satText.innerText = satPercent + '% (Довольны)';
+            satText.style.color = 'var(--success-color)';
+        } else if (satPercent > 40) {
+            satFill.style.backgroundColor = 'var(--warning-color)';
+            satText.innerText = satPercent + '% (Ворчат)';
+            satText.style.color = 'var(--warning-color)';
+        } else {
+            satFill.style.backgroundColor = 'var(--danger-color)';
+            satText.innerText = satPercent + '% (Бунтуют / Не едут!)';
+            satText.style.color = 'var(--danger-color)';
+        }
+
+        const fairPrice = 25 + game.upgrades.marketing * 10;
+        document.getElementById('fareTipText').innerText =
+            'Комфортная цена: до ' + fairPrice + ' ₽ · расчетный оптимум ~' + (fairPrice + 42) + ' ₽';
+
+        // Бейджи статуса + сезон
+        const isWeekend = (game.time.dayOfWeek === 5 || game.time.dayOfWeek === 6);
+        const h = game.time.hour;
+        const season = getSeason(game.time.month);
+
+        let statusHtml = '<div class="status-badge season-' + season.cls + '">' + season.name + ' · ' + season.desc + '</div> ';
+        currentSpeedMult = 1.0;
+
+        if (!isWeekend && ((h >= 7 && h < 9) || (h >= 17 && h < 19))) {
+            currentSpeedMult = 0.5;
+            statusHtml += '<div class="status-badge traffic">🚦 Час пик (Спрос x1.8 / Пробка)</div> ';
+        } else {
+            if (isRandomTrafficActive) {
+                currentSpeedMult = 0.6;
+                statusHtml += '<div class="status-badge random-traffic">⚠️ Внезапный затор (Скорость x0.6)</div> ';
+            } else if (!isWeekend && h >= 11 && h < 14) {
+                currentSpeedMult = 1.3;
+                statusHtml += '<div class="status-badge fast">🟢 Свободная дорога (Скорость x1.3)</div> ';
+            } else if (isWeekend) {
+                currentSpeedMult = 1.2;
+                statusHtml += '<div class="status-badge fast">🏖 Выходной (Скорость x1.2)</div> ';
+            }
+        }
+
+        if (festivalTimer > 0) {
+            statusHtml += '<div class="status-badge">🎉 Фестиваль: x2 доход (' + festivalTimer + 'ч)</div>';
+        }
+
+        document.getElementById('statusBadgeContainer').innerHTML = statusHtml;
+
+        const eco = computeEconomy(getDemandMult());
+        const netIncome = Math.round(eco.income - eco.expense);
+        const incomeElem = document.getElementById('incomeDisplay');
+        incomeElem.innerText = 'Чистый доход: ' + (netIncome >= 0 ? '+' : '') + fmt(netIncome) + ' ₽/сек';
+        incomeElem.style.color = netIncome >= 0 ? 'var(--success-color)' : 'var(--danger-color)';
+    }
+
+    function renderFleet() {
+        document.getElementById('fleetCount').innerText = game.vehicles.length;
+        document.getElementById('maxCapacity').innerText = getMaxCapacity();
+        const fleetList = document.getElementById('fleetList');
+
+        if (game.vehicles.length === 0) {
+            fleetList.innerHTML = '<div style="color: var(--hint-color); font-size: 12px; text-align: center;">Транспорта нет. Купите машину в Салоне!</div>';
+            return;
+        }
+
+        fleetList.innerHTML = game.vehicles.map(v => {
+            const conf = vehicleTypes[v.type];
+            const wearPercent = Math.round(v.wear);
+            const repairCost = Math.round((v.wear / 100) * conf.repairFactor);
+            const isCritical = wearPercent > 75;
+            const route = routes[v.route] || routes.ring;
+
+            const driverInfo = v.driver
+                ? '<span style="color:var(--success-color)">👨‍✈️ ' + v.driver.name + ' (' + v.driver.label + ')</span> ' +
+                  '<button data-action="unassign" data-id="' + v.id + '" style="padding:2px 5px; font-size:10px; background:#444; border:none; border-radius:3px; color:#fff;">Снять</button>'
+                : '<span style="color:var(--danger-color)">⚠️ Нет водителя!</span> ' +
+                  '<button data-action="open-assign" data-id="' + v.id + '" style="padding:2px 5px; font-size:10px; background:var(--button-color); border:none; border-radius:3px; color:#fff;">Назначить</button>';
+
+            return '<div class="vehicle-item">' +
+                '<div class="vehicle-header">' +
+                    '<strong>' + conf.name + '</strong> (' + conf.capacity + ' мест) ' +
+                    (wearPercent > 0
+                        ? '<button data-action="repair" data-id="' + v.id + '" style="padding:3px 6px; font-size:10px; background:var(--button-color); border:none; border-radius:4px; color:#fff;">Ремонт (' + fmt(repairCost) + ' ₽)</button>'
+                        : '<span style="color:var(--success-color); font-size:11px;">Исправен</span>') +
+                '</div>' +
+                '<div style="margin-top:4px; font-size:11px;">Водитель: ' + driverInfo + '</div>' +
+                '<div style="margin-top:4px; font-size:11px;">Маршрут: ' +
+                    '<button data-action="cycle-route" data-id="' + v.id + '" style="padding:2px 6px; font-size:10px; background:#333; border:none; border-radius:4px; color:#fff;">' + route.name + '</button>' +
+                    ' <span style="color:var(--hint-color);">доход x' + route.incomeMult + ' · износ x' + route.wearMult + '</span>' +
+                '</div>' +
+                '<div style="margin-top:2px; font-size:11px; color:' + (isCritical ? 'var(--danger-color)' : 'var(--hint-color)') + ';">' +
+                    'Износ: ' + wearPercent + '% ' + (isCritical ? '⚠️ Требует ремонта!' : '') +
+                '</div>' +
+            '</div>';
+        }).join('');
+    }
+
+    function renderDrivers() {
+        const candList = document.getElementById('driversCandidatesList');
+        candList.innerHTML = game.candidates.map(c =>
+            '<div class="driver-card">' +
+                '<div><strong>' + c.name + '</strong> (' + c.age + ' лет)<br>' +
+                '<span class="tag-badge ' + (c.level === 1 ? 'novice' : c.level === 2 ? 'experienced' : 'pro') + '">' + c.label + '</span>' +
+                ' <span style="font-size:11px; color:var(--hint-color);">ЗП: ' + c.salary + ' ₽/день · доход x' + (c.quality || 1) + '</span></div>' +
+                '<button class="action-btn" data-action="hire" data-id="' + c.id + '" style="width:auto; padding:4px 8px;">Нанять</button>' +
+            '</div>'
+        ).join('') || '<div style="font-size:12px; color:var(--hint-color); text-align:center;">Кандидатов нет — обновите список.</div>';
+
+        const freeList = document.getElementById('freeDriversList');
+        if (game.driversStaff.length === 0) {
+            freeList.innerHTML = '<div style="font-size:12px; color:var(--hint-color); text-align:center;">В штате нет свободных водителей.</div>';
+        } else {
+            freeList.innerHTML = game.driversStaff.map(d =>
+                '<div class="driver-card">' +
+                    '<div><strong>' + d.name + '</strong> (' + d.age + ' лет)<br>' +
+                    '<span class="tag-badge ' + (d.level === 1 ? 'novice' : d.level === 2 ? 'experienced' : 'pro') + '">' + d.label + '</span>' +
+                    ' <span style="font-size:11px; color:var(--hint-color);">доход x' + (d.quality || 1) + '</span></div>' +
+                    '<button class="action-btn" data-action="fire" data-id="' + d.id + '" style="width:auto; padding:4px 8px; background:#5c2323;">Уволить</button>' +
+                '</div>'
+            ).join('');
+        }
+    }
+
+    function renderAds() {
+        document.getElementById('activeAdsCount').innerText = game.activeAds.length;
+
+        const offersList = document.getElementById('adOffersList');
+        offersList.innerHTML = game.adMarketOffers.map((b, idx) => {
+            const isActive = game.activeAds.some(a => a.key === b.key);
+            const isLimitReached = game.activeAds.length >= 4;
+            const isDisabled = isActive || isLimitReached;
+
+            let btnText = 'Предложить';
+            if (isActive) btnText = 'Уже активен';
+            else if (isLimitReached) btnText = 'Лимит (4/4)';
+
+            return '<div class="ad-card">' +
+                '<div><strong>' + b.icon + ' ' + b.name + '</strong><br>' +
+                '<span style="font-size:11px; color:var(--success-color);">+' + fmt(b.dailyPay) + ' ₽/день</span> | ' +
+                '<span style="font-size:11px; color:var(--hint-color);">' + b.durationDays + ' дней</span></div>' +
+                '<button class="action-btn" data-action="ad-sign" data-idx="' + idx + '" style="width:auto; padding:4px 8px;"' + (isDisabled ? ' disabled' : '') + '>' + btnText + '</button>' +
+            '</div>';
+        }).join('');
+
+        const activeAdsList = document.getElementById('activeAdsList');
+        if (game.activeAds.length === 0) {
+            activeAdsList.innerHTML = '<div style="font-size:12px; color:var(--hint-color); text-align:center;">Нет активных контрактов.</div>';
+        } else {
+            activeAdsList.innerHTML = game.activeAds.map(a =>
+                '<div class="ad-card">' +
+                    '<div><strong>' + a.icon + ' ' + a.name + '</strong><br>' +
+                    '<span style="font-size:11px; color:var(--success-color);">+' + fmt(a.dailyPay) + ' ₽/день</span></div>' +
+                    '<span style="font-size:11px; color:var(--warning-color);">Осталось ' + a.daysLeft + ' дн.</span>' +
+                '</div>'
+            ).join('');
+        }
+    }
+
+    function renderUpgrades() {
+        ['marketing', 'garage'].forEach(type => {
+            const cost = Math.round(upgradeConfigs[type].baseCost * Math.pow(upgradeConfigs[type].mult, game.upgrades[type]));
+            document.getElementById('lvl-' + type).innerText = game.upgrades[type];
+            document.getElementById('btn-up-' + type).innerText = fmt(cost) + ' ₽';
+        });
+    }
+
+    function refreshAll() {
+        updateQuickHUD();
+        renderFleet();
+        renderDrivers();
+        renderAds();
+        renderUpgrades();
+        renderLog();
+    }
+
+    // ==========================================
+    // ДЕЙСТВИЯ ИГРОКА
+    // ==========================================
+    function generateAdOffers() {
+        return adBrandTemplates.map(tpl => {
+            const priceVar = 0.8 + Math.random() * 0.4;
+            const daysVar = 0.8 + Math.random() * 0.4;
+            return {
+                key: tpl.key,
+                name: tpl.name,
+                icon: tpl.icon,
+                dailyPay: Math.round(tpl.basePay * priceVar),
+                durationDays: Math.round(tpl.baseDays * daysVar)
+            };
+        });
+    }
+
+    function generateCandidatesList() {
+        const usedNames = new Set();
+        game.driversStaff.forEach(d => usedNames.add(d.name));
+        game.vehicles.forEach(v => { if (v.driver) usedNames.add(v.driver.name); });
+
+        const candidates = [];
+        let attempts = 0;
+
+        while (candidates.length < 3 && attempts < 100) {
+            attempts++;
+            const name = driverNames[Math.floor(Math.random() * driverNames.length)];
+            if (!usedNames.has(name)) {
+                usedNames.add(name);
+                const age = Math.floor(Math.random() * 35) + 22;
+                const expType = Math.random();
+                let level = 1;
+                if (expType > 0.7) level = 3;
+                else if (expType > 0.3) level = 2;
+                const conf = driverLevels[level];
+                candidates.push({
+                    id: genId(),
+                    name: name, age: age, level: level,
+                    salary: conf.salary, wearMult: conf.wearMult,
+                    quality: conf.quality, label: conf.label,
+                    daysWorked: 0
+                });
+            }
+        }
+        return candidates;
+    }
+
+    function refreshCandidates(isPaid) {
+        if (isPaid) {
+            if (game.money < 500) {
+                haptic('error');
+                addLog('Недостаточно средств для обновления биржи!');
+                return;
+            }
+            game.money -= 500;
+        }
+        game.candidates = generateCandidatesList();
+        renderDrivers();
+        updateQuickHUD();
+        saveGame();
+    }
+
+    function hireCandidate(id) {
+        const idx = game.candidates.findIndex(c => c.id === id);
+        if (idx === -1) return;
+        const driver = game.candidates.splice(idx, 1)[0];
+        game.driversStaff.push(driver);
+        game.stats.driversHired++;
+        haptic('success');
+        addLog('Нанят новый водитель: ' + driver.name + ' (' + driver.label + ')');
+        renderDrivers();
+        updateQuickHUD();
+        saveGame();
+    }
+
+    function fireDriverFromStaff(id) {
+        const idx = game.driversStaff.findIndex(d => d.id === id);
+        if (idx !== -1) {
+            const driver = game.driversStaff.splice(idx, 1)[0];
+            game.stats.driversFired++;
+            haptic('light');
+            addLog('Водитель ' + driver.name + ' уволен из штата.');
+            renderDrivers();
+            updateQuickHUD();
+            saveGame();
+        }
+    }
+
+    function trySignAdContract(offerIndex) {
+        if (game.activeAds.length >= 4) {
+            showNoticeModal('🚫 Лимит контрактов!', 'У вас уже заключено 4 активных рекламных контракта! Дождитесь окончания текущих договоров.');
+            return;
+        }
+
+        const offer = game.adMarketOffers[offerIndex];
+        if (!offer) return;
+        const isAlreadyActive = game.activeAds.some(a => a.key === offer.key);
+        if (isAlreadyActive) {
+            showNoticeModal('⚠️ Контракт уже действует!', 'У вас уже подписан активный контракт с компанией "' + offer.name + '". Повторное подписание невозможно до его окончания.');
+            return;
+        }
+
+        if (Math.random() < 0.5) {
+            game.activeAds.push({
+                key: offer.key, name: offer.name, icon: offer.icon,
+                dailyPay: offer.dailyPay, durationDays: offer.durationDays,
+                id: genId(),
+                daysLeft: offer.durationDays
+            });
+            haptic('success');
+            showNoticeModal('✅ Контракт подписан!', 'Компания "' + offer.name + '" согласилась на размещение! Выплаты: +' + fmt(offer.dailyPay) + ' ₽/день на ' + offer.durationDays + ' дней.');
+            addLog('Заключен контракт с "' + offer.name + '" (+' + fmt(offer.dailyPay) + ' ₽/день)');
+        } else {
+            haptic('error');
+            showNoticeModal('❌ Отказ по контракту', 'Компания "' + offer.name + '" отклонила ваше предложение. Попробуйте позже!');
+            addLog('Компания "' + offer.name + '" отказалась от предложенной рекламы.');
+        }
+        renderAds();
+        updateQuickHUD();
+        saveGame();
+    }
+
+    function openAssignModal(vehicleId) {
+        assignTargetVehicleId = vehicleId;
+        const list = document.getElementById('assignDriversList');
+
+        if (game.driversStaff.length === 0) {
+            list.innerHTML = '<div style="font-size:12px; color:var(--hint-color); padding:10px 0;">Нет свободных водителей! Нанимите их во вкладке «Кадры».</div>';
+        } else {
+            list.innerHTML = game.driversStaff.map(driver =>
+                '<div class="driver-card">' +
+                    '<div><strong>' + driver.name + '</strong> (' + driver.age + ' лет)<br>' +
+                    '<span class="tag-badge ' + (driver.level === 1 ? 'novice' : driver.level === 2 ? 'experienced' : 'pro') + '">' + driver.label + '</span>' +
+                    ' <span style="font-size:11px; color:var(--hint-color);">ЗП: ' + driver.salary + ' ₽/день · доход x' + (driver.quality || 1) + '</span></div>' +
+                    '<button class="action-btn" data-action="assign" data-id="' + driver.id + '" style="width:auto; padding:4px 8px;">Назначить</button>' +
+                '</div>'
+            ).join('');
+        }
+        document.getElementById('assignDriverModal').classList.add('active');
+        refreshBackVisibility();
+    }
+
+    function closeAssignModal() {
+        document.getElementById('assignDriverModal').classList.remove('active');
+        assignTargetVehicleId = null;
+        refreshBackVisibility();
+    }
+
+    function assignDriver(driverId) {
+        const vehicle = game.vehicles.find(v => v.id === assignTargetVehicleId);
+        const dIdx = game.driversStaff.findIndex(d => d.id === driverId);
+
+        if (vehicle && dIdx !== -1) {
+            if (vehicle.driver) game.driversStaff.push(vehicle.driver);
+            vehicle.driver = game.driversStaff.splice(dIdx, 1)[0];
+            haptic('success');
+            addLog(vehicle.driver.name + ' назначен на ' + vehicleTypes[vehicle.type].name + ' (' + (routes[vehicle.route] || routes.ring).name + ')');
+            closeAssignModal();
+            renderFleet();
+            updateQuickHUD();
+            saveGame();
+        }
+    }
+
+    function unassignDriver(vehicleId) {
+        const vehicle = game.vehicles.find(v => v.id === vehicleId);
+        if (vehicle && vehicle.driver) {
+            game.driversStaff.push(vehicle.driver);
+            addLog(vehicle.driver.name + ' снят с маршрута.');
+            vehicle.driver = null;
+            renderFleet();
+            updateQuickHUD();
+            saveGame();
+        }
+    }
+
+    function cycleRoute(vehicleId) {
+        const vehicle = game.vehicles.find(v => v.id === vehicleId);
+        if (!vehicle) return;
+        const idx = routeOrder.indexOf(vehicle.route);
+        vehicle.route = routeOrder[(idx + 1) % routeOrder.length];
+        haptic('light');
+        addLog(vehicleTypes[vehicle.type].name + ' переведен на маршрут: ' + routes[vehicle.route].name);
+        renderFleet();
+        saveGame();
+    }
+
+    function getMaxCapacity() {
+        return 5 + game.upgrades.garage * 3;
+    }
+
+    function buyVehicle(typeKey) {
+        if (isGameOver) return;
+        if (game.vehicles.length >= getMaxCapacity()) {
+            haptic('error');
+            addLog('Гараж полон! Увеличьте вместимость во вкладке Настройки.');
+            return;
+        }
+        const vConfig = vehicleTypes[typeKey];
+        if (game.money >= vConfig.cost) {
+            game.money -= vConfig.cost;
+            game.vehicles.push({
+                type: typeKey,
+                id: genId(),
+                wear: 0,
+                pathProgress: Math.random(),
+                driver: null,
+                route: 'ring'
+            });
+            haptic('success');
+            addLog('Куплен новый транспорт: ' + vConfig.name + ' (маршрут: ' + routes.ring.name + '). Нанимите водителя!');
+            renderFleet();
+            updateQuickHUD();
+            saveGame();
+        } else {
+            haptic('error');
+            addLog('Недостаточно средств для покупки ' + vConfig.name + '!');
+        }
+    }
+
+    function buyUpgrade(type) {
+        if (isGameOver) return;
+        const cost = Math.round(upgradeConfigs[type].baseCost * Math.pow(upgradeConfigs[type].mult, game.upgrades[type]));
+        if (game.money >= cost) {
+            game.money -= cost;
+            game.upgrades[type]++;
+            haptic('success');
+            addLog('Приобретено улучшение: ' + type + ' (Ур. ' + game.upgrades[type] + ')');
+            renderUpgrades();
+            updateQuickHUD();
+            saveGame();
+        } else {
+            haptic('error');
+            addLog('Недостаточно средств для улучшения!');
+        }
+    }
+
+    function repairVehicle(id) {
+        if (isGameOver) return;
+        const vehicle = game.vehicles.find(v => v.id === id);
+        if (!vehicle) return;
+        const conf = vehicleTypes[vehicle.type];
+        const repairCost = Math.round((vehicle.wear / 100) * conf.repairFactor);
+
+        if (game.money >= repairCost) {
+            game.money -= repairCost;
+            game.stats.totalRepairsCost += repairCost;
+            vehicle.wear = 0;
+            haptic('success');
+            addLog('Транспорт отремонтирован за ' + fmt(repairCost) + ' ₽');
+            renderFleet();
+            updateQuickHUD();
+            saveGame();
+        } else {
+            haptic('error');
+            addLog('Не хватает средств на ремонт (' + fmt(repairCost) + ' ₽)!');
+        }
+    }
+
+    // ==========================================
+    // ВРЕМЯ И ДНЕВНАЯ ЭКОНОМИКА
+    // ==========================================
+    function advanceTime() {
+        game.time.hour++;
+        game.time.minute = 0;
+
+        isRandomTrafficActive = (Math.random() < 0.45);
+
+        if (game.time.hour >= 24) {
+            game.time.hour = 0;
+            game.time.day++;
+            game.stats.daysPassed++;
+            game.time.dayOfWeek = (game.time.dayOfWeek + 1) % 7;
+
+            if (game.time.day % 3 === 0) {
+                game.adMarketOffers = generateAdOffers();
+                renderAds();
+            }
+
+            processDailyEconomics();
+
+            // Сохранение в начале новых игровых суток
+            saveGame();
+
+            let maxDays = daysInMonth[game.time.month];
+            if (game.time.month === 1 && game.time.year % 4 === 0) maxDays = 29;
+
+            if (game.time.day > maxDays) {
+                const prevSeason = getSeason(game.time.month).name;
+                game.time.day = 1;
+                game.time.month++;
+                if (game.time.month >= 12) {
+                    game.time.month = 0;
+                    game.time.year++;
+                    ageDriversOneYear();
+                }
+                const newSeason = getSeason(game.time.month);
+                if (newSeason.name !== prevSeason) {
+                    addLog(newSeason.name + ' Наступил новый сезон: ' + newSeason.desc + '.');
+                }
+            }
+        }
+    }
+
+    function processDailyEconomics() {
+        let totalSalaries = 0;
+
+        game.vehicles.forEach(v => {
+            if (v.driver) {
+                totalSalaries += v.driver.salary;
+                v.driver.daysWorked++;
+
+                if (v.driver.daysWorked >= 30 && v.driver.level < 3) {
+                    v.driver.level++;
+                    const conf = driverLevels[v.driver.level];
+                    v.driver.label = conf.label;
+                    v.driver.salary = conf.salary;
+                    v.driver.wearMult = conf.wearMult;
+                    v.driver.quality = conf.quality;
+                    addLog('🎉 Водитель ' + v.driver.name + ' повысил свой уровень до "' + v.driver.label + '"!');
+                }
+
+                if (Math.random() < 0.02) {
+                    const firedDriverName = v.driver.name;
+                    v.driver = null;
+                    game.stats.driversFired++;
+                    haptic('warning');
+                    addLog('🚪 Водитель ' + firedDriverName + ' уволился по собственному желанию!');
+                    renderFleet();
+                    showNoticeModal('🚪 Водитель уволился!', 'Водитель ' + firedDriverName + ' принял решение уволиться по собственному желанию. Назначьте нового водителя на данный транспорт.');
+                }
+            }
+        });
+
+        game.driversStaff.forEach(d => { totalSalaries += d.salary * 0.5; });
+        game.money -= totalSalaries;
+
+        // Плата за простой: машина без водителя стоит на стоянке
+        const idleVehicles = game.vehicles.filter(v => !v.driver);
+        if (idleVehicles.length > 0) {
+            const idleCost = idleVehicles.reduce((sum, v) => sum + vehicleTypes[v.type].parkFee, 0);
+            game.money -= idleCost;
+            game.stats.parkingCost += idleCost;
+            addLog('🅿️ Плата за простой (' + idleVehicles.length + ' ' + (idleVehicles.length === 1 ? 'машина' : 'машин') + ' без водителя): −' + fmt(idleCost) + ' ₽');
+        }
+
+        for (let i = game.activeAds.length - 1; i >= 0; i--) {
+            const ad = game.activeAds[i];
+            game.money += ad.dailyPay;
+            game.stats.adIncome += ad.dailyPay;
+            addLog('Получена выплата по рекламе от "' + ad.name + '": +' + fmt(ad.dailyPay) + ' ₽');
+            ad.daysLeft--;
+
+            if (ad.daysLeft <= 0) {
+                addLog('📜 Истёк рекламный контракт с "' + ad.name + '"');
+                game.activeAds.splice(i, 1);
+            }
+        }
+        renderAds();
+        renderFleet();
+    }
+
+    function ageDriversOneYear() {
+        const checkAge = (d, removeCallback) => {
+            d.age++;
+            if (d.age >= 65) {
+                const retiredName = d.name;
+                game.stats.driversRetired++;
+                haptic('warning');
+                removeCallback();
+                addLog('👴 Водитель ' + retiredName + ' ушел на заслуженную пенсию в 65 лет!');
+                showNoticeModal('👴 Уход на пенсию!', 'Водитель ' + retiredName + ' достиг 65 лет и уходит на заслуженную пенсию!');
+            }
+        };
+
+        game.vehicles.forEach(v => {
+            if (v.driver) checkAge(v.driver, () => { v.driver = null; });
+        });
+
+        for (let i = game.driversStaff.length - 1; i >= 0; i--) {
+            checkAge(game.driversStaff[i], () => { game.driversStaff.splice(i, 1); });
+        }
+    }
+
+    // ==========================================
+    // ИГРОВОЙ ТИК
+    // ==========================================
+    function gameTick() {
+        if (isPaused || isModalActive || isGameOver) return;
+
+        advanceTime();
+
+        if (festivalTimer > 0) festivalTimer--;
+
+        const demandMult = getDemandMult();
+        const season = getSeason(game.time.month);
+        const h = game.time.hour;
+        const isWeekend = (game.time.dayOfWeek === 5 || game.time.dayOfWeek === 6);
+        const isRush = !isWeekend && ((h >= 7 && h < 9) || (h >= 17 && h < 19));
+        const trafficExtra = (isRandomTrafficActive || isRush) ? 1.2 : 1.0;
+
+        const eco = computeEconomy(demandMult);
+        game.vehicles.forEach(v => {
+            const conf = vehicleTypes[v.type];
+            if (v.driver && v.wear < 100) {
+                const route = routes[v.route] || routes.ring;
+                const newWear = v.wear + conf.wearRate * trafficExtra * season.wear * route.wearMult * (v.driver.wearMult || 1);
+                v.wear = Math.min(100, newWear);
+            }
+        });
+
+        if (game.vehicles.length > 0) {
+            game.money += (eco.income - eco.expense);
+            if (eco.income > eco.expense) game.stats.totalEarned += (eco.income - eco.expense);
+            game.stats.passengersCarried += Math.round(eco.pax);
+        }
+
+        checkBankruptcy();
+
+        if (Math.random() < 0.03 && !isModalActive && !isGameOver) {
+            triggerInteractiveEvent();
+        }
+
+        updateQuickHUD();
+    }
+
+    // ==========================================
+    // МОДАЛЬНЫЕ ОКНА
+    // ==========================================
+    function showNoticeModal(title, desc) {
+        isPaused = true;
+        document.getElementById('noticeTitle').innerText = title;
+        document.getElementById('noticeDesc').innerText = desc;
+        document.getElementById('noticeModal').classList.add('active');
+        refreshBackVisibility();
+    }
+
+    function closeNoticeModal() {
+        document.getElementById('noticeModal').classList.remove('active');
+        if (!isGameOver) isPaused = false;
+        updateQuickHUD();
+        saveGame();
+        refreshBackVisibility();
+    }
+
+    function showStatsModal(titleText) {
+        document.getElementById('statsTitle').innerText = titleText;
+        const s = game.stats;
+
+        document.getElementById('statsContent').innerHTML =
+            '<div class="stat-row"><span>Игровых дней проработано:</span><strong>' + s.daysPassed + ' дн.</strong></div>' +
+            '<div class="stat-row"><span>Перевезено пассажиров:</span><strong>' + fmt(s.passengersCarried) + ' чел.</strong></div>' +
+            '<div class="stat-row"><span>Суммарная чистая выручка:</span><strong>' + fmt(s.totalEarned) + ' ₽</strong></div>' +
+            '<div class="stat-row"><span>Доход от рекламы:</span><strong>' + fmt(s.adIncome) + ' ₽</strong></div>' +
+            '<div class="stat-row"><span>Плата за простой:</span><strong>' + fmt(s.parkingCost) + ' ₽</strong></div>' +
+            '<div class="stat-row"><span>Потрачено на ремонт:</span><strong>' + fmt(s.totalRepairsCost) + ' ₽</strong></div>' +
+            '<div class="stat-row"><span>Уплачено штрафов:</span><strong>' + fmt(s.totalFines) + ' ₽</strong></div>' +
+            '<div class="stat-row"><span>Нанято водителей:</span><strong>' + s.driversHired + ' чел.</strong></div>' +
+            '<div class="stat-row"><span>Уволено / Уволилось:</span><strong>' + s.driversFired + ' чел.</strong></div>' +
+            '<div class="stat-row"><span>Ушло на пенсию:</span><strong>' + s.driversRetired + ' чел.</strong></div>';
+
+        document.getElementById('statsModal').classList.add('active');
+        refreshBackVisibility();
+    }
+
+    function closeStatsModal() {
+        document.getElementById('statsModal').classList.remove('active');
+        if (!isGameOver) {
+            isPaused = false;
+            document.getElementById('pauseBtn').innerText = '⏸ Пауза / Статистика';
+            document.getElementById('pauseBtn').classList.remove('paused');
+        }
+        refreshBackVisibility();
+    }
+
+    function closeEventModal() {
+        document.getElementById('eventModal').classList.remove('active');
+        isModalActive = false;
+        currentEvent = null;
+        updateQuickHUD();
+        saveGame();
+        refreshBackVisibility();
+    }
+
+    function togglePause() {
+        if (isGameOver) return;
+        isPaused = true;
+        haptic('light');
+        document.getElementById('pauseBtn').innerText = '▶ Продолжить';
+        document.getElementById('pauseBtn').classList.add('paused');
+        showStatsModal('⏸ Пауза — Статистика компании');
+    }
+
+    function resetGame() {
+        askConfirm('Начать игру заново? Весь прогресс будет сброшен.', restartGameFromScratch);
+    }
+
+    function restartGameFromScratch() {
+        try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+        game = createFreshState();
+        festivalTimer = 0;
+        isPaused = false;
+        isGameOver = false;
+        isModalActive = false;
+        currentEvent = null;
+
+        refreshCandidates();
+        document.getElementById('statsModal').classList.remove('active');
+        document.getElementById('eventModal').classList.remove('active');
+        document.getElementById('noticeModal').classList.remove('active');
+        document.getElementById('pauseBtn').innerText = '⏸ Пауза / Статистика';
+        document.getElementById('pauseBtn').classList.remove('paused');
+        refreshBackVisibility();
+
+        addLog('Игра начата с чистого листа! 1 января 2000 года.');
+        refreshAll();
+        saveGame();
+    }
+
+    function switchTab(tabName, btnElement) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btnElement.classList.add('active');
+        document.getElementById('tab-' + tabName).classList.add('active');
+        haptic('light');
+    }
+
+    // ==========================================
+    // СОБЫТИЯ
+    // ==========================================
+    function handleFairCheck() {
+        closeEventModal();
+        if (Math.random() < 0.5) {
+            showNoticeModal('✅ Проверка пройдена', 'Инспекторы Ространснадзора проверили технику и документы. Нарушений не обнаружено!');
+            addLog('Проверка Ространснадзора пройдена: нарушения не найдены!');
+        } else {
+            game.money -= 1500;
+            game.stats.totalFines += 1500;
+            haptic('error');
+            showNoticeModal('❌ Штраф Ространснадзора', 'Инспекторы выявили нарушение в техническом состоянии транспорта! Выписан штраф: 1 500 ₽');
+            addLog('Ространснадзор выявил нарушение! Штраф 1 500 ₽');
+            checkBankruptcy();
+        }
+        updateQuickHUD();
+        saveGame();
+    }
+
+    function triggerInteractiveEvent() {
+        let rand = Math.random();
+        const isWeekend = (game.time.dayOfWeek === 5 || game.time.dayOfWeek === 6);
+        let festivalChance = isWeekend ? 0.60 : 0.15;
+
+        const hasWornVehicle = game.vehicles.some(v => v.wear > 60);
+        let ev;
+
+        if (rand < festivalChance) {
+            ev = {
+                title: '🎉 Городской фестиваль',
+                desc: 'В городе начался праздник! Наплыв пассажиров удвоился на 5 часов.',
+                choices: [
+                    { text: '🚀 Отлично! Ловим момент (х2 доход 5 часов)', action: () => {
+                        festivalTimer = 5;
+                        haptic('success');
+                        addLog('Начался городской фестиваль! Доход x2 на 5 часов.');
+                        closeEventModal();
+                    }}
+                ]
+            };
+        } else if (hasWornVehicle && Math.random() < 0.30) {
+            ev = {
+                title: '🛠️ Внезапная поломка мотора',
+                desc: 'На маршруте из-за высокого износа заглохла одна из машин! Пассажиры требуют компенсацию.',
+                choices: [
+                    { text: '⚡ Вызвать быстрый эвакуатор (1 500 ₽)', action: () => {
+                        game.money -= 1500;
+                        game.stats.totalRepairsCost += 1500;
+                        haptic('warning');
+                        addLog('Эвакуатор оперативно убрал заглохшую машину с линии.');
+                        closeEventModal();
+                        checkBankruptcy();
+                        updateQuickHUD();
+                    }},
+                    { text: '📢 Вернуть деньги пассажирам (800 ₽)', action: () => {
+                        game.money -= 800;
+                        haptic('warning');
+                        addLog('Пассажиры получили назад стоимость билетов.');
+                        closeEventModal();
+                        checkBankruptcy();
+                        updateQuickHUD();
+                    }}
+                ]
+            };
+        } else if (Math.random() < 0.25) {
+            ev = {
+                title: '👮 Проверка Ространснадзора',
+                desc: 'Инспекторы остановили ваш автотранспорт для внеплановой проверки документов и технического состояния.',
+                choices: [
+                    { text: '🤝 Решить вопрос на месте (3 000 ₽)', action: () => {
+                        game.money -= 3000;
+                        game.stats.totalFines += 3000;
+                        haptic('warning');
+                        addLog('Откупились от проверки Ространснадзора.');
+                        closeEventModal();
+                        checkBankruptcy();
+                        updateQuickHUD();
+                    }},
+                    { text: '📋 Пройти честную проверку', action: () => {
+                        handleFairCheck();
+                    }}
+                ]
+            };
+        } else if (game.activeAds.length < 4 && Math.random() < 0.20) {
+            const randomTemplate = adBrandTemplates[Math.floor(Math.random() * adBrandTemplates.length)];
+            const isAlreadyActive = game.activeAds.some(a => a.key === randomTemplate.key);
+
+            if (!isAlreadyActive) {
+                const dailyPay = Math.round(randomTemplate.basePay * (0.9 + Math.random() * 0.4));
+                const durationDays = Math.round(randomTemplate.baseDays * (0.9 + Math.random() * 0.4));
+
+                ev = {
+                    title: '📩 Входящий рекламный контракт!',
+                    desc: 'Представитель "' + randomTemplate.name + '" сам вышел на вас и предлагает брендирование транспорта! Выплата: +' + fmt(dailyPay) + ' ₽/день на ' + durationDays + ' дней.',
+                    choices: [
+                        { text: '✅ Подписать контракт', action: () => {
+                            game.activeAds.push({
+                                key: randomTemplate.key,
+                                name: randomTemplate.name,
+                                icon: randomTemplate.icon,
+                                dailyPay: dailyPay,
+                                durationDays: durationDays,
+                                id: genId(),
+                                daysLeft: durationDays
+                            });
+                            haptic('success');
+                            addLog('Принят входящий рекламный контракт от "' + randomTemplate.name + '"');
+                            renderAds();
+                            closeEventModal();
+                        }},
+                        { text: '❌ Отклонить предложение', action: () => {
+                            closeEventModal();
+                        }}
+                    ]
+                };
+            } else {
+                return;
+            }
+        } else {
+            return;
+        }
+
+        isModalActive = true;
+        currentEvent = ev;
+        haptic('warning');
+        document.getElementById('modalTitle').innerText = ev.title;
+        document.getElementById('modalDesc').innerText = ev.desc;
+
+        const choicesContainer = document.getElementById('modalChoices');
+        choicesContainer.innerHTML = ev.choices.map((choice, i) =>
+            '<button class="action-btn" data-action="choice" data-idx="' + i + '" style="margin-bottom:6px;">' + choice.text + '</button>'
+        ).join('');
+
+        document.getElementById('eventModal').classList.add('active');
+        refreshBackVisibility();
+    }
+
+    function checkBankruptcy() {
+        if (game.money <= -10000 && !isGameOver) {
+            isGameOver = true;
+            haptic('error');
+            addLog('💀 БАНКРОТСТВО! Баланс опустился ниже -10 000 ₽.');
+            showStatsModal('💀 Банкротство — Финальный отчет');
+        }
+    }
+
+    // ==========================================
+    // ДВИЖОК КАРТЫ (CANVAS)
+    // ==========================================
+    const canvas = document.getElementById('cityMap');
+    const ctx = canvas.getContext('2d');
+
+    const cityRoute = [
+        {x: 40,  y: 40},
+        {x: 190, y: 40},
+        {x: 340, y: 40},
+        {x: 340, y: 160},
+        {x: 190, y: 160},
+        {x: 40,  y: 160}
+    ];
+
+    const busStops = [
+        {x: 110, y: 30,  label: '🚏 Вокзал'},
+        {x: 270, y: 30,  label: '🚏 Центр'},
+        {x: 350, y: 100, label: '🚏 Парк'},
+        {x: 270, y: 170, label: '🚏 Рынок'},
+        {x: 110, y: 170, label: '🚏 Депо'}
+    ];
+
+    const cityBuildings = [
+        {x: 70,  y: 65,  w: 90, h: 70, color: '#2c3e50'},
+        {x: 220, y: 65,  w: 90, h: 70, color: '#34495e'},
+        {x: 170, y: 10,  w: 40, h: 20, color: '#27ae60'}
+    ];
+
+    let trafficLightTimer = 0;
+    let isRedLight = false;
+
+    function drawCityMap() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#1e261f';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        cityBuildings.forEach(b => {
+            ctx.fillStyle = b.color;
+            ctx.fillRect(b.x, b.y, b.w, b.h);
+            ctx.strokeStyle = '#1a221a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(b.x, b.y, b.w, b.h);
+            ctx.fillStyle = '#f1c40f';
+            ctx.fillRect(b.x + 10, b.y + 15, 8, 8);
+            ctx.fillRect(b.x + 25, b.y + 15, 8, 8);
+            ctx.fillRect(b.x + 10, b.y + 35, 8, 8);
+            ctx.fillRect(b.x + 25, b.y + 35, 8, 8);
+        });
+
+        ctx.strokeStyle = '#343a40';
+        ctx.lineWidth = 26;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(cityRoute[0].x, cityRoute[0].y);
+        for (let i = 1; i < cityRoute.length; i++) ctx.lineTo(cityRoute[i].x, cityRoute[i].y);
+        ctx.closePath();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(190, 40);
+        ctx.lineTo(190, 160);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#f8f9fa';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        drawZebraCross(190, 40, true);
+        drawZebraCross(190, 160, true);
+
+        busStops.forEach(stop => {
+            ctx.fillStyle = '#e67e22';
+            ctx.beginPath();
+            ctx.arc(stop.x, stop.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.font = '10px sans-serif';
+            ctx.fillStyle = '#ccc';
+            ctx.textAlign = 'center';
+            ctx.fillText(stop.label, stop.x, stop.y < 100 ? stop.y - 6 : stop.y + 14);
+        });
+
+        trafficLightTimer += 0.016;
+        if (trafficLightTimer > 4) {
+            isRedLight = !isRedLight;
+            trafficLightTimer = 0;
+        }
+
+        ctx.fillStyle = '#111';
+        ctx.fillRect(182, 18, 16, 16);
+        ctx.fillStyle = isRedLight ? '#e74c3c' : '#2ecc71';
+        ctx.beginPath();
+        ctx.arc(190, 26, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (!isPaused && !isGameOver) {
+            game.vehicles.forEach((v, index) => {
+                if (v.driver) {
+                    let speed = (0.0025 * currentSpeedMult) + (index * 0.0001);
+                    const pos = getRoutePosition(v.pathProgress);
+                    const nearTrafficLight = (Math.abs(pos.x - 190) < 15 && Math.abs(pos.y - 40) < 15);
+                    if (nearTrafficLight && isRedLight) speed = 0;
+                    v.pathProgress = (v.pathProgress + speed) % 1;
+                    drawVehicleIcon(v, pos);
+                }
+            });
+        } else {
+            game.vehicles.forEach(v => {
+                if (v.driver) {
+                    drawVehicleIcon(v, getRoutePosition(v.pathProgress));
+                }
+            });
+        }
+
+        requestAnimationFrame(drawCityMap);
+    }
+
+    function drawVehicleIcon(v, pos) {
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const conf = vehicleTypes[v.type];
+        ctx.fillText(conf ? conf.icon : '🚐', pos.x, pos.y);
+    }
+
+    function drawZebraCross(x, y, isHorizontal) {
+        ctx.fillStyle = '#ffffff';
+        for (let i = -10; i <= 10; i += 5) {
+            if (isHorizontal) ctx.fillRect(x + i, y - 10, 2, 20);
+            else ctx.fillRect(x - 10, y + i, 20, 2);
+        }
+    }
+
+    function getRoutePosition(progress) {
+        const totalSegments = cityRoute.length;
+        const scaledProgress = progress * totalSegments;
+        const index = Math.floor(scaledProgress);
+        const nextIndex = (index + 1) % totalSegments;
+        const segmentProgress = scaledProgress - index;
+
+        const p1 = cityRoute[index];
+        const p2 = cityRoute[nextIndex];
+
+        return {
+            x: p1.x + (p2.x - p1.x) * segmentProgress,
+            y: p1.y + (p2.y - p1.y) * segmentProgress
+        };
+    }
+
+    // ==========================================
+    // СОХРАНЕНИЕ И ЗАГРУЗКА
+    // ==========================================
+    const SAVE_KEY = 'transport_tycoon_save_v14';
+
+    function saveGame() {
+        try {
+            localStorage.setItem(SAVE_KEY, JSON.stringify(game));
+        } catch (e) {}
+    }
+
+    function migrateLoadedState() {
+        if (!Array.isArray(game.log)) game.log = ['[06:00] Игра запущена! 1 января 2000 года.'];
+        if (game.log.length > 50) game.log.length = 50;
+        game.stats = game.stats || {};
+        const statDefaults = {
+            daysPassed: 0, totalEarned: 0, totalRepairsCost: 0, totalFines: 0,
+            passengersCarried: 0, driversHired: 0, driversRetired: 0,
+            driversFired: 0, adIncome: 0, parkingCost: 0
+        };
+        Object.keys(statDefaults).forEach(k => {
+            if (game.stats[k] === undefined) game.stats[k] = statDefaults[k];
+        });
+        if (!game.upgrades) game.upgrades = { marketing: 0, garage: 0 };
+        if (!game.vehicles) game.vehicles = [];
+        if (!game.driversStaff) game.driversStaff = [];
+        if (!game.candidates) game.candidates = [];
+        if (!game.activeAds) game.activeAds = [];
+        if (!game.time) game.time = { year: 2000, month: 0, day: 1, dayOfWeek: 0, hour: 6, minute: 0 };
+        if (!game.ticketPrice) game.ticketPrice = 25;
+
+        let maxId = 0;
+        const scanArr = arr => arr.forEach(x => {
+            if (x && x.id) {
+                const n = Math.floor(x.id);
+                if (n > maxId) maxId = n;
+                if (x.quality === undefined) {
+                    x.quality = x.level === 3 ? 1.15 : x.level === 2 ? 1.0 : 0.9;
+                }
+            }
+        });
+        scanArr(game.vehicles);
+        scanArr(game.driversStaff);
+        scanArr(game.candidates);
+        scanArr(game.activeAds);
+        idCounter = maxId + 1;
+
+        game.vehicles.forEach(v => {
+            if (!v.route || !routes[v.route]) v.route = 'ring';
+        });
+    }
+
+    function loadGame() {
+        let saved = null;
+        try { saved = localStorage.getItem(SAVE_KEY); } catch (e) {}
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (parsed && parsed.money !== undefined) game = parsed;
+            } catch (e) {}
+        }
+        migrateLoadedState();
+        if (game.candidates.length === 0) game.candidates = generateCandidatesList();
+        if (game.adMarketOffers.length === 0) game.adMarketOffers = generateAdOffers();
+    }
+
+    // ==========================================
+    // ДЕЛЕГИРОВАНИЕ СОБЫТИЙ
+    // ==========================================
+    document.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const id = btn.dataset.id !== undefined ? Number(btn.dataset.id) : null;
+
+        switch (btn.dataset.action) {
+            case 'tab': switchTab(btn.dataset.tab, btn); break;
+            case 'buy': buyVehicle(btn.dataset.type); break;
+            case 'buy-upgrade': buyUpgrade(btn.dataset.type); break;
+            case 'hire': hireCandidate(id); break;
+            case 'fire': fireDriverFromStaff(id); break;
+            case 'repair': repairVehicle(id); break;
+            case 'open-assign': openAssignModal(id); break;
+            case 'assign': assignDriver(id); break;
+            case 'unassign': unassignDriver(id); break;
+            case 'ad-sign': trySignAdContract(Number(btn.dataset.idx)); break;
+            case 'cycle-route': cycleRoute(id); break;
+            case 'pause': togglePause(); break;
+            case 'reset': resetGame(); break;
+            case 'refresh-candidates': refreshCandidates(true); break;
+            case 'close-notice': closeNoticeModal(); break;
+            case 'close-stats': closeStatsModal(); break;
+            case 'close-assign': closeAssignModal(); break;
+            case 'choice': {
+                const ch = currentEvent && currentEvent.choices[Number(btn.dataset.idx)];
+                if (ch) ch.action();
+                break;
+            }
+        }
+    });
+
+    // Слайдер тарифа: перерисовка на input, сохранение на change
+    const fareRange = document.getElementById('fareRange');
+    fareRange.addEventListener('input', e => {
+        game.ticketPrice = parseInt(e.target.value, 10) || 25;
+        updateQuickHUD();
+    });
+    fareRange.addEventListener('change', () => saveGame());
+
+    // Гарантированное сохранение при закрытии/сворачивании аппа
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') saveGame();
+    });
+    window.addEventListener('pagehide', saveGame);
+    window.addEventListener('beforeunload', saveGame);
+
+    // ==========================================
+    // СТАРТ
+    // ==========================================
+    loadGame();
+    refreshAll();
+    setInterval(gameTick, 1000);
+    requestAnimationFrame(drawCityMap);
+</script>
+
+</body>
+</html>
